@@ -401,6 +401,10 @@
       </div>
       <div class="field-row">
         <label class="field-label">预计送达日期</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <button type="button" id="btnHasDate" onclick="setDateMode('has')" style="flex:1;padding:9px 8px;border:2px solid #2563eb;border-radius:7px;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📅 有日期</button>
+          <button type="button" id="btnNoDate" onclick="setDateMode('no')" style="flex:1;padding:9px 8px;border:2px solid #e2ddd6;border-radius:7px;background:#fafaf8;color:#888;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">⏳ 暂时没有日期</button>
+        </div>
         <input type="date" id="deliveryDate" oninput="generate()">
       </div>
       <div class="field-row">
@@ -729,6 +733,37 @@
     return `${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
   }
 
+  let dateMode = 'has'; // 'has' or 'no'
+
+  function setDateMode(mode) {
+    dateMode = mode;
+    const btnHas = document.getElementById('btnHasDate');
+    const btnNo  = document.getElementById('btnNoDate');
+    const dateInput = document.getElementById('deliveryDate');
+    if (mode === 'no') {
+      btnNo.style.border  = '2px solid #d97706';
+      btnNo.style.background = '#fffbeb';
+      btnNo.style.color   = '#92400e';
+      btnNo.classList.add('active-nodate');
+      btnHas.style.border = '2px solid #e2ddd6';
+      btnHas.style.background = '#fafaf8';
+      btnHas.style.color  = '#888';
+      btnHas.classList.remove('active-nodate');
+      dateInput.style.display = 'none';
+    } else {
+      btnHas.style.border = '2px solid #2563eb';
+      btnHas.style.background = '#eff6ff';
+      btnHas.style.color  = '#2563eb';
+      btnHas.classList.add('active-nodate'); // reuse class as marker
+      btnNo.style.border  = '2px solid #e2ddd6';
+      btnNo.style.background = '#fafaf8';
+      btnNo.style.color   = '#888';
+      btnNo.classList.remove('active-nodate');
+      dateInput.style.display = '';
+    }
+    generate();
+  }
+
   function generate() {
     const name = document.getElementById('clientName').value.trim();
     const date = document.getElementById('deliveryDate').value;
@@ -738,7 +773,8 @@
     const card = document.getElementById('messageCard');
     const body = document.getElementById('messageBody');
 
-    const deliveryStr = date ? fmt(date) : '______';
+    const noDate = document.getElementById('btnNoDate').classList.contains('active-nodate');
+    const deliveryStr = noDate ? null : (date ? fmt(date) : '______');
     const trackingStr = tracking || '__________________________';
     const emailStr = email || '__________________________';
     const count = parseInt(document.getElementById('deviceCount').value) || 1;
@@ -759,7 +795,7 @@
     const msg =
 `您好！
 
-您的摄像头设备已经寄出了，预计 ${deliveryStr} 会送到。
+${noDate ? '您的摄像头设备已经寄出了，目前快递系统还未显示预计送达日期，请您留意追踪连结，一旦有更新会显示预计送达时间。' : `您的摄像头设备已经寄出了，预计 ${deliveryStr} 会送到。`}
 
 以下是您的 UPS 追踪信息，您可以点击以下连结随时查看最新状态：
 ${upsLink}
@@ -914,6 +950,7 @@ https://gomotive.com/log-in
     document.getElementById('clientName').value = '';
     document.getElementById('deviceCount').value = '1';
     document.getElementById('deliveryDate').value = '';
+    setDateMode('has');
     document.getElementById('trackingNum').value = '';
     document.getElementById('clientEmail').value = '';
     eldChoice = null;
