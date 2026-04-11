@@ -361,6 +361,24 @@
     <p>填写客人资料后自动生成发送话术，可复制或打印存档。</p>
   </div>
 
+  <!-- PDF Auto-fill -->
+  <div class="card" id="pdfUploadCard">
+    <div class="card-title">
+      <span class="step-num" style="background:#7c3aed">✦</span>
+      自动填写 — 上传 Podio PDF
+    </div>
+    <p style="font-size:13px;color:#555;margin-bottom:14px;line-height:1.6">
+      把从 Podio 导出的 PDF 上传，系统会自动读取并填入下方所有栏位。
+    </p>
+    <label id="pdfDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #c4b5fd;border-radius:10px;padding:28px 16px;cursor:pointer;background:#faf5ff;transition:background 0.15s" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
+      <span style="font-size:28px">📄</span>
+      <span style="font-size:14px;font-weight:700;color:#7c3aed">点击上传 PDF</span>
+      <span style="font-size:12px;color:#999">或拖放文件到这里</span>
+      <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePDFUpload(this.files[0])">
+    </label>
+    <div id="pdfStatus" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
+  </div>
+
   <!-- Step 1: Basic Info -->
   <div class="card">
     <div class="card-title">
@@ -499,6 +517,129 @@
 
 <script>
   let eldChoice = null;
+
+  // ── PDF Auto-fill ────────────────────────────────────────────────────────
+  // Drag-and-drop support
+  const dropZone = document.getElementById('pdfDropZone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background='#ede9fe'; });
+  dropZone.addEventListener('dragleave', () => { dropZone.style.background='#faf5ff'; });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.style.background='#faf5ff';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') handlePDFUpload(file);
+    else showPDFStatus('error', '请上传 PDF 文件');
+  });
+
+  async function handlePDFUpload(file) {
+    if (!file) return;
+    const statusEl = document.getElementById('pdfStatus');
+    showPDFStatus('loading', '⏳ 正在读取 PDF...');
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+
+      // Load pdf.js dynamically
+      if (!window.pdfjsLib) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(s => s.str).join(' ') + '\n';
+      }
+
+      parsePodioText(fullText);
+    } catch (err) {
+      showPDFStatus('error', '❌ 读取失败：' + err.message);
+    }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  function parsePodioText(text) {
+    const filled = [];
+    const missing = [];
+
+    // Helper: extract value after a label
+    function extract(pattern, flags = 'i') {
+      const m = text.match(new RegExp(pattern, flags));
+      return m ? m[1].trim() : null;
+    }
+
+    // ── Client name ──────────────────────────────────────────────────────
+    const client = extract(/Client\s+([\w\s&.,'-]+?)(?:Assigned|$)/);
+    if (client) {
+      document.getElementById('clientName').value = client.replace(/\s+/g, ' ').trim();
+      filled.push('公司名称');
+    } else missing.push('公司名称');
+
+    // ── Email / account login ─────────────────────────────────────────────
+    const email = extract(/Account Login\s+([\w._%+\-]+@[\w.\-]+\.[a-z]{2,})/i)
+                || extract(/([\w._%+\-]+@[\w.\-]+\.[a-z]{2,})/i);
+    if (email) {
+      document.getElementById('clientEmail').value = email.toLowerCase();
+      filled.push('Email');
+    } else missing.push('Email');
+
+    // ── Total devices ─────────────────────────────────────────────────────
+    const devices = extract(/Total\s*#?\s*of\s*Devices\s*Ordered\s*(\d+)/i);
+    if (devices) {
+      document.getElementById('deviceCount').value = parseInt(devices);
+      filled.push('设备套数');
+    } else missing.push('设备套数');
+
+    // ── Tracking number ───────────────────────────────────────────────────
+    const tracking = extract(/Tracking\s*#?\s*(?:http[s]?:\/\/[\w.\/]*?)?([1Z][A-Z0-9]{15,20})/i)
+                   || extract(/(?:1Z[A-Z0-9]{16})/i);
+    if (tracking) {
+      document.getElementById('trackingNum').value = tracking.toUpperCase();
+      filled.push('UPS 追踪编号');
+    } else missing.push('UPS 追踪编号');
+
+    // ── ELD: Plan Selection ───────────────────────────────────────────────
+    const plan = extract(/Plan Selection\s+([\w\s]+?)(?:\*{3}|Date|$)/i);
+    if (plan) {
+      const hasELD = /ELD/i.test(plan);
+      selectELD(hasELD ? 'yes' : 'no');
+      filled.push('ELD 选项（' + (hasELD ? '有 ELD' : '没有 ELD') + '）');
+    } else missing.push('ELD 选项');
+
+    generate();
+
+    // ── Status message ────────────────────────────────────────────────────
+    let msg = '';
+    if (filled.length) msg += '✅ 已自动填入：' + filled.join('、') + '\n';
+    if (missing.length) msg += '⚠️ 未找到（请手动填写）：' + missing.join('、');
+    showPDFStatus(missing.length === 0 ? 'success' : 'warn', msg);
+  }
+
+  function showPDFStatus(type, msg) {
+    const el = document.getElementById('pdfStatus');
+    el.style.display = 'block';
+    el.style.whiteSpace = 'pre-line';
+    const styles = {
+      loading: ['#eff6ff','#1d4ed8','#bfdbfe'],
+      success: ['#f0fdf4','#15803d','#bbf7d0'],
+      warn:    ['#fffbeb','#92400e','#fde68a'],
+      error:   ['#fef2f2','#991b1b','#fecaca'],
+    }[type] || ['#f5f5f5','#333','#ddd'];
+    el.style.background = styles[0];
+    el.style.color = styles[1];
+    el.style.border = '1.5px solid ' + styles[2];
+    el.textContent = msg;
+  }
 
   async function lookupUPS() {
     const num = document.getElementById('trackingNum').value.trim();
@@ -768,6 +909,8 @@ https://gomotive.com/log-in
 
   function resetForm() {
     if (!confirm('确定重置表单？所有资料将清除。')) return;
+    document.getElementById('pdfFileInput').value = '';
+    document.getElementById('pdfStatus').style.display = 'none';
     document.getElementById('clientName').value = '';
     document.getElementById('deviceCount').value = '1';
     document.getElementById('deliveryDate').value = '';
