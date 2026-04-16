@@ -577,20 +577,20 @@
     const missing = [];
 
     // Helper: extract value after a label
-    function extract(pattern, flags = 'i') {
-      const m = text.match(new RegExp(pattern, flags));
-      return m ? m[1].trim() : null;
+    function extract(pattern, flags) {
+      const m = text.match(typeof pattern === 'string' ? new RegExp(pattern, flags || 'i') : pattern);
+      return (m && m[1] !== undefined) ? m[1].trim() : null;
     }
 
     // ── Client name ──────────────────────────────────────────────────────
-    const client = extract(/Client\s+([\w\s&.,'-]+?)(?:Assigned|$)/);
+    const client = extract(/Client\s+([\w\s&.,'-]+?)(?:Assigned|$)/i);
     if (client) {
       document.getElementById('clientName').value = client.replace(/\s+/g, ' ').trim();
       filled.push('公司名称');
     } else missing.push('公司名称');
 
     // ── Email / account login ─────────────────────────────────────────────
-    const email = extract(/Account Login\s+([\w._%+\-]+@[\w.\-]+\.[a-z]{2,})/i)
+    const email = extract(/Account\s*Login\s+([\w._%+\-]+@[\w.\-]+\.[a-z]{2,})/i)
                 || extract(/([\w._%+\-]+@[\w.\-]+\.[a-z]{2,})/i);
     if (email) {
       document.getElementById('clientEmail').value = email.toLowerCase();
@@ -605,15 +605,20 @@
     } else missing.push('设备套数');
 
     // ── Tracking number ───────────────────────────────────────────────────
-    const tracking = extract(/Tracking\s*#?\s*(?:http[s]?:\/\/[\w.\/]*?)?([1Z][A-Z0-9]{15,20})/i)
-                   || extract(/(?:1Z[A-Z0-9]{16})/i);
+    // Handles both: bare "1Z..." and full UPS URL with trackNums=1Z...
+    let tracking = null;
+    const tnMatch = text.match(/trackNums=([A-Z0-9]{15,25})/i)
+                 || text.match(/Tracking\s*#?[^\n]*?(1Z[A-Z0-9]{15,22})/i)
+                 || text.match(/(1Z[A-Z0-9]{15,22})/i);
+    if (tnMatch) tracking = tnMatch[1].toUpperCase();
+
     if (tracking) {
-      document.getElementById('trackingNum').value = tracking.toUpperCase();
+      document.getElementById('trackingNum').value = tracking;
       filled.push('UPS 追踪编号');
     } else missing.push('UPS 追踪编号');
 
     // ── ELD: Plan Selection ───────────────────────────────────────────────
-    const plan = extract(/Plan Selection\s+([\w\s]+?)(?:\*{3}|Date|$)/i);
+    const plan = extract(/Plan\s*Selection\s+([\w\s]+?)(?:\*{3}|Date\s|$)/i);
     if (plan) {
       const hasELD = /ELD/i.test(plan);
       selectELD(hasELD ? 'yes' : 'no');
