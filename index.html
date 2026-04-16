@@ -365,18 +365,35 @@
   <div class="card" id="pdfUploadCard">
     <div class="card-title">
       <span class="step-num" style="background:#7c3aed">✦</span>
-      自动填写 — 上传 Podio PDF
+      自动填写 — 上传 PDF
     </div>
     <p style="font-size:13px;color:#555;margin-bottom:14px;line-height:1.6">
-      把从 Podio 导出的 PDF 上传，系统会自动读取并填入下方所有栏位。
+      分别上传 Podio PDF 和 Packing Slip PDF，系统自动读取并填入所有栏位。
     </p>
-    <label id="pdfDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #c4b5fd;border-radius:10px;padding:28px 16px;cursor:pointer;background:#faf5ff;transition:background 0.15s" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
-      <span style="font-size:28px">📄</span>
-      <span style="font-size:14px;font-weight:700;color:#7c3aed">点击上传 PDF</span>
-      <span style="font-size:12px;color:#999">或拖放文件到这里</span>
-      <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePDFUpload(this.files[0])">
-    </label>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <!-- Podio PDF -->
+      <div style="flex:1;min-width:200px">
+        <p style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">① Podio PDF</p>
+        <label id="pdfDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed #c4b5fd;border-radius:10px;padding:20px 12px;cursor:pointer;background:#faf5ff;transition:background 0.15s" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
+          <span style="font-size:24px">📋</span>
+          <span style="font-size:13px;font-weight:700;color:#7c3aed" id="podioLabel">点击上传 Podio PDF</span>
+          <span style="font-size:11px;color:#999">客人名称、Email、追踪编号</span>
+          <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePDFUpload(this.files[0])">
+        </label>
+      </div>
+      <!-- Packing Slip PDF -->
+      <div style="flex:1;min-width:200px">
+        <p style="font-size:12px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">② Packing Slip PDF</p>
+        <label id="packingDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed #7dd3fc;border-radius:10px;padding:20px 12px;cursor:pointer;background:#f0f9ff;transition:background 0.15s" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'">
+          <span style="font-size:24px">📦</span>
+          <span style="font-size:13px;font-weight:700;color:#0369a1" id="packingLabel">点击上传 Packing Slip</span>
+          <span style="font-size:11px;color:#999">读取 Cable 型号 → 生成安装连结</span>
+          <input type="file" id="packingFileInput" accept=".pdf" style="display:none" onchange="handlePackingUpload(this.files[0])">
+        </label>
+      </div>
+    </div>
     <div id="pdfStatus" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
+    <div id="packingStatus" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
   </div>
 
   <!-- Step 1: Basic Info -->
@@ -535,6 +552,17 @@
     else showPDFStatus('error', '请上传 PDF 文件');
   });
 
+  const packingZone = document.getElementById('packingDropZone');
+  packingZone.addEventListener('dragover', e => { e.preventDefault(); packingZone.style.background='#bae6fd'; });
+  packingZone.addEventListener('dragleave', () => { packingZone.style.background='#f0f9ff'; });
+  packingZone.addEventListener('drop', e => {
+    e.preventDefault();
+    packingZone.style.background='#f0f9ff';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') handlePackingUpload(file);
+    else { document.getElementById('packingStatus').style.display='block'; document.getElementById('packingStatus').textContent='请上传 PDF 文件'; }
+  });
+
   async function handlePDFUpload(file) {
     if (!file) return;
     const statusEl = document.getElementById('pdfStatus');
@@ -562,6 +590,150 @@
     } catch (err) {
       showPDFStatus('error', '❌ 读取失败：' + err.message);
     }
+  }
+
+  // ── Cable info database ────────────────────────────────────────────────
+  const CABLE_DB = {
+    '3000': { group: '3000', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3001': { group: '3001', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3002': { group: '3002', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3003': { group: '3003', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3010': { group: '3010', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3015': { group: '3015', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3017': { group: '3017', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3018': { group: '3018', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3022': { group: '3022', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077428843293-Cable-3022' },
+    '3030': { group: '3030', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077563098909-Cable-3030' },
+    '3031': { group: '3031', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077700343069-Cable-3031' },
+    '3034': { group: '3034', truck: 'Volvo / Mack 2018', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/6162446778269-Cable-3034-Volvo-Mack-2018' },
+    '3035': { group: '3035', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077823038493-Cable-3035-3036-for-RP-1226' },
+    '3036': { group: '3036', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077823038493-Cable-3035-3036-for-RP-1226' },
+    '3043': { group: '3043', truck: 'Freightliner', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077913601053-Cable-3043-for-Freightliner' },
+  };
+
+  // Stores parsed cable info for use in generate()
+  let parsedCables = []; // [{code, qty, info}]
+
+  async function handlePackingUpload(file) {
+    if (!file) return;
+    const statusEl = document.getElementById('packingStatus');
+    statusEl.style.display = 'block';
+    statusEl.style.background = '#eff6ff';
+    statusEl.style.color = '#1d4ed8';
+    statusEl.style.border = '1.5px solid #bfdbfe';
+    statusEl.textContent = '⏳ 正在读取 Packing Slip...';
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      if (!window.pdfjsLib) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(s => s.str).join(' ') + '\n';
+      }
+
+      parsePackingSlip(fullText, file.name);
+    } catch (err) {
+      statusEl.style.background = '#fef2f2';
+      statusEl.style.color = '#991b1b';
+      statusEl.style.border = '1.5px solid #fecaca';
+      statusEl.textContent = '❌ 读取失败：' + err.message;
+    }
+  }
+
+  function parsePackingSlip(text, filename) {
+    const statusEl = document.getElementById('packingStatus');
+
+    // Find all CABLE-XXXX entries with quantities
+    // Format in packing slip: "CABLE-3003 3003 - 9-Pin Long Y 1"
+    const cableMatches = [...text.matchAll(/CABLE[- ](\d{4})[^\d]*(\d+)\s*(?:$|\n)/gi)];
+
+    // Also try simpler pattern
+    const cableMatches2 = [...text.matchAll(/CABLE[- ](\d{4})/gi)];
+
+    parsedCables = [];
+    const seen = {};
+
+    // Try to get qty from first pattern
+    for (const m of cableMatches) {
+      const code = m[1];
+      const qty = parseInt(m[2]) || 1;
+      if (!seen[code]) { seen[code] = qty; }
+    }
+    // Fallback: just record cable codes with qty 1
+    for (const m of cableMatches2) {
+      const code = m[1];
+      if (!seen[code]) seen[code] = 1;
+    }
+
+    for (const [code, qty] of Object.entries(seen)) {
+      const info = CABLE_DB[code];
+      parsedCables.push({ code, qty, info });
+    }
+
+    if (parsedCables.length === 0) {
+      statusEl.style.background = '#fffbeb';
+      statusEl.style.color = '#92400e';
+      statusEl.style.border = '1.5px solid #fde68a';
+      statusEl.textContent = '⚠️ 未找到 Cable 型号，请检查文件是否正确。';
+      return;
+    }
+
+    // Update label
+    document.getElementById('packingLabel').textContent = '✅ ' + filename.replace('.pdf','');
+
+    const found = parsedCables.map(c => 'Cable ' + c.code + (c.qty > 1 ? ' ×' + c.qty : '')).join('、');
+    statusEl.style.background = '#f0fdf4';
+    statusEl.style.color = '#15803d';
+    statusEl.style.border = '1.5px solid #bbf7d0';
+    statusEl.textContent = '✅ 已识别 Cable：' + found + '，话术已更新。';
+
+    generate();
+  }
+
+  function buildCableText() {
+    if (!parsedCables.length) return '';
+
+    // Group cables by URL — sum up quantities for same link
+    const urlGroups = {}; // url -> { truck, totalQty, codes[] }
+    const unknown = [];
+
+    for (const { code, qty, info } of parsedCables) {
+      if (!info) { unknown.push(code); continue; }
+      if (!urlGroups[info.url]) {
+        urlGroups[info.url] = { truck: info.truck, totalQty: 0, codes: [], url: info.url };
+      }
+      urlGroups[info.url].totalQty += qty;
+      urlGroups[info.url].codes.push(code);
+    }
+
+    const lines = [];
+
+    for (const grp of Object.values(urlGroups)) {
+      const numStr = grp.totalQty === 1 ? '一' : String(grp.totalQty);
+      let sentence = '';
+      if (grp.truck) {
+        sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的是这条线，以下是安装视频教程：
+${grp.url}`;
+      } else {
+        sentence = `您的设备配备的是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
+${grp.url}`;
+      }
+      lines.push(sentence);
+    }
+
+    for (const code of unknown) {
+      lines.push(`您的设备包含 Cable ${code}，请联系我们确认安装方式。`);
+    }
+
+    return lines.join('\n\n');
   }
 
   function loadScript(src) {
@@ -810,7 +982,7 @@ ${eldPart}
 📹 这个是安装摄像头的视频教程，麻烦参考：
 https://gomotive.com/dashcam-guide
 
-（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）
+（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）${buildCableText() ? '\n\n' + buildCableText() : ''}
 
 ---
 
@@ -952,6 +1124,11 @@ https://gomotive.com/log-in
     if (!confirm('确定重置表单？所有资料将清除。')) return;
     document.getElementById('pdfFileInput').value = '';
     document.getElementById('pdfStatus').style.display = 'none';
+    document.getElementById('packingFileInput').value = '';
+    document.getElementById('packingStatus').style.display = 'none';
+    document.getElementById('packingLabel').textContent = '点击上传 Packing Slip';
+    document.getElementById('podioLabel').textContent = '点击上传 Podio PDF';
+    parsedCables = [];
     document.getElementById('clientName').value = '';
     document.getElementById('deviceCount').value = '1';
     document.getElementById('deliveryDate').value = '';
