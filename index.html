@@ -717,9 +717,15 @@
     const lines = [];
 
     for (const grp of Object.values(urlGroups)) {
-      const numStr = grp.totalQty === 1 ? '一' : String(grp.totalQty);
+      const numStr = String(grp.totalQty);
+      const onlyOneGroup = Object.keys(urlGroups).length === 1;
       let sentence = '';
-      if (grp.truck) {
+      if (grp.truck && grp.totalQty === 1 && onlyOneGroup) {
+        // 只有一个 Cable 组、一台车 → 简短版
+        sentence = `您这台车的设备应该是配这条线，以下是这条线的安装视频：
+${grp.url}`;
+      } else if (grp.truck) {
+        // 多个 Cable 组 或 多台车 → 详细版
         sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
 ${grp.url}`;
       } else {
