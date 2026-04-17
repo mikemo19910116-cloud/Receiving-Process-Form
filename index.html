@@ -594,14 +594,14 @@
 
   // ── Cable info database ────────────────────────────────────────────────
   const CABLE_DB = {
-    '3000': { group: '3000', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
-    '3001': { group: '3001', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
-    '3002': { group: '3002', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
-    '3003': { group: '3003', truck: 'Freightliner（绿色9针）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
-    '3010': { group: '3010', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
-    '3015': { group: '3015', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
-    '3017': { group: '3017', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
-    '3018': { group: '3018', truck: 'Volvo（OBD-II）', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3000': { group: '3000', truck: 'Freightliner', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3001': { group: '3001', truck: 'Freightliner', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3002': { group: '3002', truck: 'Freightliner', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3003': { group: '3003', truck: 'Freightliner', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077332190621-Cable-3000-3001-3002-3003-for-Green-9-Pin' },
+    '3010': { group: '3010', truck: 'Volvo', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3015': { group: '3015', truck: 'Volvo', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3017': { group: '3017', truck: 'Volvo', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
+    '3018': { group: '3018', truck: 'Volvo', url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II' },
     '3022': { group: '3022', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077428843293-Cable-3022' },
     '3030': { group: '3030', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077563098909-Cable-3030' },
     '3031': { group: '3031', truck: null, url: 'https://helpcenter.gomotive.com/hc/en-us/articles/14077700343069-Cable-3031' },
@@ -720,10 +720,10 @@
       const numStr = grp.totalQty === 1 ? '一' : String(grp.totalQty);
       let sentence = '';
       if (grp.truck) {
-        sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的是这条线，以下是安装视频教程：
+        sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
 ${grp.url}`;
       } else {
-        sentence = `您的设备配备的是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
+        sentence = `您的设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
 ${grp.url}`;
       }
       lines.push(sentence);
