@@ -462,7 +462,8 @@
   <div id="messageCard" class="message-card">
     <div class="message-header">
       📋 发送话术（可直接复制）
-      <button class="copy-btn" onclick="copyMessage()">📋 复制文字</button>
+      <button class="copy-btn" onclick="copyMessage()">📋 复制（WeCom）</button>
+      <button class="copy-btn" onclick="copyWechat()" style="margin-left:6px">💬 复制（WeChat）</button>
       <button class="copy-btn" onclick="exportPDF()" style="margin-left:6px">📄 存成 PDF</button>
     </div>
     <div class="message-body" id="messageBody"></div>
@@ -1072,6 +1073,94 @@ https://gomotive.com/log-in
       btn.textContent = '已复制 ✓';
       setTimeout(() => btn.textContent = orig, 2000);
     });
+  }
+
+  function copyWechat() {
+    const el = document.getElementById('messageBody');
+    const text = el.innerText || el.textContent;
+
+    // WeChat personal strips ALL newlines.
+    // Strategy: join each paragraph into one line, separate paragraphs with a blank line
+    // using the vertical tab character \v which some WeChat versions preserve,
+    // and additionally offer a preview modal so user can copy manually if needed.
+    const paras = text
+      .split(/\n{2,}/)           // split on paragraph breaks
+      .map(p => p.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim())  // flatten each para
+      .filter(p => p.length > 0);
+
+    // Join with double newline as paragraph separator
+
+
+    const wechat = paras.join('\n\n');
+
+    navigator.clipboard.writeText(wechat).then(() => {
+      // Show preview modal so user can verify / manually copy if needed
+      showWechatPreview(wechat);
+    }).catch(() => {
+      showWechatPreview(wechat);
+    });
+  }
+
+  function showWechatPreview(text) {
+    // Remove existing modal if any
+    const existing = document.getElementById('wechatModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'wechatModal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:12px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;font-family:Noto Sans SC,sans-serif';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'padding:14px 18px;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center';
+    const headerTitle = document.createElement('span');
+    headerTitle.textContent = '💬 WeChat 版 — 长按全选复制';
+    const headerClose = document.createElement('button');
+    headerClose.textContent = '关闭';
+    headerClose.style.cssText = 'background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px';
+    headerClose.onclick = () => overlay.remove();
+    header.appendChild(headerTitle);
+    header.appendChild(headerClose);
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'padding:8px 18px;background:#fffbeb;color:#92400e;font-size:12px;border-bottom:1px solid #fde68a';
+    hint.textContent = '已尝试自动复制。如未成功，请长按下方文字全选后手动复制。';
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.cssText = 'flex:1;padding:16px 18px;font-size:14px;line-height:1.8;border:none;outline:none;resize:none;color:#1a1a1a;font-family:inherit;overflow-y:auto';
+    textarea.addEventListener('focus', () => textarea.select());
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'padding:12px 18px;border-top:1px solid #eee;display:flex;gap:8px';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 再次复制';
+    copyBtn.style.cssText = 'flex:1;padding:10px;background:#1a1a1a;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = '已复制 ✓';
+        setTimeout(() => copyBtn.textContent = '📋 再次复制', 2000);
+      });
+    };
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.style.cssText = 'padding:10px 20px;background:#fff;color:#1a1a1a;border:1.5px solid #e2ddd6;border-radius:7px;font-size:14px;cursor:pointer;font-family:inherit';
+    closeBtn.onclick = () => overlay.remove();
+
+    footer.appendChild(copyBtn);
+    footer.appendChild(closeBtn);
+    box.appendChild(header);
+    box.appendChild(hint);
+    box.appendChild(textarea);
+    box.appendChild(footer);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    setTimeout(() => { textarea.focus(); textarea.select(); }, 100);
   }
 
   function exportPDF() {
