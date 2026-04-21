@@ -1006,7 +1006,7 @@ ${grp.url}`;
     if (eldChoice === 'no') {
       eldPart = `⚠️ 注意：那个黑色小盒子不是 ELD，因为您没有购买他们的 ELD 服务，所以不会有 ELD 的功能，不用担心。`;
     } else if (eldChoice === 'yes') {
-      eldPart = `（黑色小盒子就是您的 ELD 设备）`;
+      eldPart = ``;
     } else {
       eldPart = `[请先在上方选择客人是否购买了 ELD]`;
     }
@@ -1024,7 +1024,7 @@ ${eldPart}
 📹 这个是安装摄像头的视频教程，麻烦参考：
 https://gomotive.com/dashcam-guide
 
-（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）${buildCableText() ? '\n\n' + buildCableText() : ''}
+${eldChoice !== 'yes' ? '（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）' : ''}${buildCableText() ? '\n\n' + buildCableText() : ''}
 
 ---
 
