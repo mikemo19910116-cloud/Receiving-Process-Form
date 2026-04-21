@@ -651,26 +651,38 @@
   function parsePackingSlip(text, filename) {
     const statusEl = document.getElementById('packingStatus');
 
-    // Find all CABLE-XXXX entries with quantities
-    // Format in packing slip: "CABLE-3003 3003 - 9-Pin Long Y 1"
-    const cableMatches = [...text.matchAll(/CABLE[- ](\d{4})[^\d]*(\d+)\s*(?:$|\n)/gi)];
-
-    // Also try simpler pattern
-    const cableMatches2 = [...text.matchAll(/CABLE[- ](\d{4})/gi)];
-
     parsedCables = [];
-    const seen = {};
+    const seen = {}; // code -> qty
 
-    // Try to get qty from first pattern
-    for (const m of cableMatches) {
-      const code = m[1];
-      const qty = parseInt(m[2]) || 1;
-      if (!seen[code]) { seen[code] = qty; }
+    // Strategy: split text on each CABLE- occurrence, then extract code + trailing qty
+    // Works even when description text wraps across lines
+    // e.g. segment: "3043 3043 - Freightliner 2017+ for Heavy Duty Vehicles 1 "
+    const segments = text.split(/CABLE[- ]/i);
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments[i];
+      // First 4 chars should be the cable code
+      const codeMatch = seg.match(/^(\d{4})/);
+      if (!codeMatch) continue;
+      const code = codeMatch[1];
+      // The quantity is the LAST standalone number in this segment
+      // before the next item or serial number section
+      // Cut off at serial number lines (long alphanumeric strings)
+      // Cut off at non-cable items (DC-, LBB-, etc.) to avoid picking up their quantities
+      let cleanSeg = seg.split(/\b(?:DC|LBB|CAMERA|MOUNT|HOLDER)[- ]/i)[0];
+      cleanSeg = cleanSeg.replace(/[A-Z]{4}\d{2}[A-Z]{2}\d{6,}/g, ''); // strip serial nums
+      const nums = [...cleanSeg.matchAll(/\b(\d{1,3})\b/g)].map(m => parseInt(m[1]));
+      // Filter: qty should be small (1-99), ignore the cable code itself (4 digits)
+      const validNums = nums.filter(n => n >= 1 && n <= 99 && String(n) !== code);
+      // The last valid number is the quantity (it appears at end of row)
+      const qty = validNums.length > 0 ? validNums[validNums.length - 1] : 1;
+      if (!seen[code]) seen[code] = qty;
     }
-    // Fallback: just record cable codes with qty 1
-    for (const m of cableMatches2) {
-      const code = m[1];
-      if (!seen[code]) seen[code] = 1;
+
+    // Fallback: if no segments found, just find CABLE codes with qty 1
+    if (Object.keys(seen).length === 0) {
+      for (const m of [...text.matchAll(/CABLE[- ](\d{4})/gi)]) {
+        if (!seen[m[1]]) seen[m[1]] = 1;
+      }
     }
 
     for (const [code, qty] of Object.entries(seen)) {
@@ -729,7 +741,7 @@ ${grp.url}`;
         sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
 ${grp.url}`;
       } else {
-        sentence = `您的设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
+        sentence = `您有 ${numStr} 台设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
 ${grp.url}`;
       }
       lines.push(sentence);
@@ -796,12 +808,36 @@ ${grp.url}`;
     } else missing.push('UPS 追踪编号');
 
     // ── ELD: Plan Selection ───────────────────────────────────────────────
-    const plan = extract(/Plan\s*Selection\s+([\w\s]+?)(?:\*{3}|Date\s|$)/i);
+    const plan = extract(/Plan\s*Selection\s+([\w\s;,+&]+?)(?:\*{3}|Date\s|$)/i);
     if (plan) {
       const hasELD = /ELD/i.test(plan);
       selectELD(hasELD ? 'yes' : 'no');
       filled.push('ELD 选项（' + (hasELD ? '有 ELD' : '没有 ELD') + '）');
     } else missing.push('ELD 选项');
+
+    // ── Date Delivered ────────────────────────────────────────────────────
+    // Try multiple date formats: MM/DD/YYYY, YYYY-MM-DD, "April 22, 2026"
+    const deliveredRaw = extract(/Date\s+Delivered\s+(\d{1,2}\/\d{1,2}\/\d{4})/i)
+                       || extract(/Date\s+Delivered\s+(\d{4}-\d{2}-\d{2})/i)
+                       || extract(/Date\s+Delivered\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
+    if (deliveredRaw) {
+      let iso = null;
+      const mMDY = deliveredRaw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      const mISO = deliveredRaw.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (mMDY) {
+        iso = `${mMDY[3]}-${mMDY[1].padStart(2,'0')}-${mMDY[2].padStart(2,'0')}`;
+      } else if (mISO) {
+        iso = deliveredRaw.slice(0, 10);
+      } else {
+        const d = new Date(deliveredRaw);
+        if (!isNaN(d)) iso = d.toISOString().slice(0, 10);
+      }
+      if (iso) {
+        document.getElementById('deliveryDate').value = iso;
+        setDateMode('has');
+        filled.push('送达日期（' + deliveredRaw.trim() + '）');
+      }
+    }
 
     generate();
 
