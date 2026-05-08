@@ -394,6 +394,13 @@
     </div>
     <div id="pdfStatus" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
     <div id="packingStatus" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
+
+    <!-- Manual Cable Input -->
+    <div style="margin-top:14px;border-top:1.5px dashed #e2ddd6;padding-top:14px">
+      <p style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">✏️ 手动输入 Cable 号码</p>
+      <div id="cableInputList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button type="button" onclick="addCableRow()" style="margin-top:8px;width:100%;padding:8px;border:1.5px dashed #cbd5e1;border-radius:7px;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">＋ 添加一条线</button>
+    </div>
   </div>
 
   <!-- Step 1: Basic Info -->
@@ -675,49 +682,43 @@
 
   async function handlePackingImage(file) {
     const statusEl = document.getElementById('packingStatus');
-    statusEl.textContent = '⏳ 正在用 AI 识别图片内容...';
+    statusEl.style.display = 'block';
+    statusEl.style.background = '#eff6ff';
+    statusEl.style.color = '#1d4ed8';
+    statusEl.style.border = '1.5px solid #bfdbfe';
+    statusEl.textContent = '⏳ 正在加载 OCR 引擎...';
 
     try {
-      // Convert image to base64
-      const base64 = await new Promise((resolve, reject) => {
+      // Load Tesseract.js from CDN if not already loaded
+      if (!window.Tesseract) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js');
+      }
+
+      statusEl.textContent = '⏳ 正在识别图片文字（约 10-20 秒）...';
+
+      // Get image data URL
+      const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
 
-      const mediaType = file.type; // e.g. image/png
-
-      // Call Claude API to extract text from image
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mediaType, data: base64 }
-              },
-              {
-                type: 'text',
-                text: 'This is a Motive packing slip. Please extract ALL text from this image exactly as shown, preserving the item codes like CABLE-3003, quantities, and descriptions. Return only the raw extracted text, no commentary.'
-              }
-            ]
-          }]
-        })
+      // Run Tesseract OCR
+      const result = await Tesseract.recognize(dataUrl, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            const pct = Math.round((m.progress || 0) * 100);
+            statusEl.textContent = '⏳ 识别中 ' + pct + '%...';
+          }
+        }
       });
 
-      const data = await response.json();
-      const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('\n') || '';
+      const text = result.data.text;
+      if (!text || text.trim().length < 10) throw new Error('未能识别到文字内容');
 
-      if (!text) throw new Error('AI 未能识别内容');
       parsePackingSlip(text, file.name);
     } catch (err) {
-      const statusEl = document.getElementById('packingStatus');
       statusEl.style.background = '#fef2f2';
       statusEl.style.color = '#991b1b';
       statusEl.style.border = '1.5px solid #fecaca';
@@ -725,10 +726,85 @@
     }
   }
 
+  // ── Manual Cable Input ──────────────────────────────────────────────────
+  const CABLE_CODES = Object.keys(CABLE_DB).sort();
+
+  function addCableRow(code = '', qty = 1) {
+    const list = document.getElementById('cableInputList');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center';
+
+    // Cable code dropdown
+    const sel = document.createElement('select');
+    sel.style.cssText = 'flex:1;padding:8px 10px;border:1.5px solid #e2ddd6;border-radius:7px;font-size:14px;font-family:inherit;background:#fafaf8;color:#1a1a1a;outline:none';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '选择 Cable 型号';
+    placeholder.disabled = true;
+    if (!code) placeholder.selected = true;
+    sel.appendChild(placeholder);
+    CABLE_CODES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = 'Cable ' + c + (CABLE_DB[c].truck ? ' — ' + CABLE_DB[c].truck : '');
+      if (c === code) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', applyManualCables);
+
+    // Qty input
+    const qtyWrap = document.createElement('div');
+    qtyWrap.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0';
+    const qtyLabel = document.createElement('span');
+    qtyLabel.textContent = '数量';
+    qtyLabel.style.cssText = 'font-size:12px;color:#888;white-space:nowrap';
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.min = '1';
+    qtyInput.max = '99';
+    qtyInput.value = qty;
+    qtyInput.style.cssText = 'width:52px;padding:8px 6px;border:1.5px solid #e2ddd6;border-radius:7px;font-size:14px;text-align:center;font-family:inherit;outline:none';
+    qtyInput.addEventListener('input', applyManualCables);
+    qtyWrap.appendChild(qtyLabel);
+    qtyWrap.appendChild(qtyInput);
+
+    // Delete button
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '✕';
+    del.style.cssText = 'width:30px;height:30px;border:1.5px solid #fecaca;border-radius:6px;background:#fef2f2;color:#dc2626;font-size:13px;cursor:pointer;flex-shrink:0;font-family:inherit;padding:0';
+    del.onclick = () => { row.remove(); applyManualCables(); };
+
+    row.appendChild(sel);
+    row.appendChild(qtyWrap);
+    row.appendChild(del);
+    list.appendChild(row);
+    sel.focus();
+  }
+
+  function applyManualCables() {
+    const list = document.getElementById('cableInputList');
+    const rows = list.querySelectorAll('div');
+    const manualCables = [];
+    rows.forEach(row => {
+      const sel = row.querySelector('select');
+      const qty = parseInt(row.querySelector('input[type=number]')?.value) || 1;
+      if (sel && sel.value) {
+        manualCables.push({ code: sel.value, qty, info: CABLE_DB[sel.value] });
+      }
+    });
+    // Merge manual cables into parsedCables (replace manual entries, keep PDF entries)
+    // Strategy: rebuild parsedCables from PDF base + manual overrides
+    const pdfCables = parsedCables.filter(c => !manualCables.find(m => m.code === c.code));
+    parsedCables = [...pdfCables, ...manualCables];
+    generate();
+  }
+
   function parsePackingSlip(text, filename) {
     const statusEl = document.getElementById('packingStatus');
 
     parsedCables = [];
+    document.getElementById('cableInputList').innerHTML = '';
     const seen = {}; // code -> qty
 
     // Strategy: split text on each CABLE- occurrence, then extract code + trailing qty
@@ -783,6 +859,11 @@
     statusEl.style.color = '#15803d';
     statusEl.style.border = '1.5px solid #bbf7d0';
     statusEl.textContent = '✅ 已识别 Cable：' + found + '，话术已更新。';
+
+    // Sync manual input rows with parsed cables
+    const list = document.getElementById('cableInputList');
+    list.innerHTML = '';
+    parsedCables.forEach(c => addCableRow(c.code, c.qty));
 
     generate();
   }
