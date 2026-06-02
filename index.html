@@ -1037,7 +1037,7 @@ ${grp.url}`;
     } else missing.push('UPS 追踪编号');
 
     // ── ELD: Plan Selection ───────────────────────────────────────────────
-    const plan = extract(/Plan\s*Selection\s+([\w\s;,+&]+?)(?:\*{3}|Date\s|$)/i);
+    const plan = extract(/Plan\s*Selection\s+([\w\s;,+&]+?)(?:\*{3}|[""\u201c\u201d]|DEVICE|Date\s|$)/i);
     if (plan) {
       const hasELD = /ELD/i.test(plan);
       selectELD(hasELD ? 'yes' : 'no');
