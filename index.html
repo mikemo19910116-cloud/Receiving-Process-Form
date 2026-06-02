@@ -377,8 +377,8 @@
         <label id="pdfDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed #c4b5fd;border-radius:10px;padding:20px 12px;cursor:pointer;background:#faf5ff;transition:background 0.15s" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
           <span style="font-size:24px">📋</span>
           <span style="font-size:13px;font-weight:700;color:#7c3aed" id="podioLabel">点击上传 Podio PDF</span>
-          <span style="font-size:11px;color:#999">客人名称、Email、追踪编号</span>
-          <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePDFUpload(this.files[0])">
+          <span style="font-size:11px;color:#999">支持 PDF / PNG · 客人名称、Email、追踪编号</span>
+          <input type="file" id="pdfFileInput" accept=".pdf,.png,.jpg,.jpeg" style="display:none" onchange="handlePDFUpload(this.files[0])">
         </label>
       </div>
       <!-- Packing Slip PDF -->
@@ -556,7 +556,7 @@
     e.preventDefault();
     dropZone.style.background='#faf5ff';
     const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') handlePDFUpload(file);
+    if (file && (file.type === 'application/pdf' || file.type.startsWith('image/'))) handlePDFUpload(file);
     else showPDFStatus('error', '请上传 PDF 文件');
   });
 
@@ -573,10 +573,15 @@
 
   async function handlePDFUpload(file) {
     if (!file) return;
-    const statusEl = document.getElementById('pdfStatus');
-    showPDFStatus('loading', '⏳ 正在读取 PDF...');
+    showPDFStatus('loading', '⏳ 正在读取...');
 
     try {
+      // Route images to OCR
+      if (file.type.startsWith('image/')) {
+        await handlePodioImage(file);
+        return;
+      }
+
       const arrayBuffer = await file.arrayBuffer();
 
       // Load pdf.js dynamically
@@ -592,6 +597,32 @@
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         fullText += content.items.map(s => s.str).join(' ') + '\n';
+      }
+
+      // If text is garbled/empty, fall back to OCR on rendered page
+      const readable = fullText.replace(/[^ -~一-鿿]/g, '').trim();
+      if (readable.length < 30) {
+        showPDFStatus('loading', '⏳ 检测到乱码 PDF，正在用 OCR 识别...');
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const fakeFile = new File([blob], 'podio_page1.png', { type: 'image/png' });
+        await handlePodioImage(fakeFile);
+        // Also render page 2 if exists (for Account Login)
+        if (pdf.numPages >= 2) {
+          const page2 = await pdf.getPage(2);
+          const vp2 = page2.getViewport({ scale: 2.0 });
+          const c2 = document.createElement('canvas');
+          c2.width = vp2.width; c2.height = vp2.height;
+          await page2.render({ canvasContext: c2.getContext('2d'), viewport: vp2 }).promise;
+          const blob2 = await new Promise(res => c2.toBlob(res, 'image/png'));
+          await handlePodioImage(new File([blob2], 'podio_page2.png', { type: 'image/png' }), true);
+        }
+        return;
       }
 
       parsePodioText(fullText);
@@ -918,6 +949,46 @@ ${grp.url}`;
       s.src = src; s.onload = resolve; s.onerror = reject;
       document.head.appendChild(s);
     });
+  }
+
+  async function handlePodioImage(file, appendMode = false) {
+    if (!appendMode) showPDFStatus('loading', '⏳ 正在加载 OCR 引擎...');
+
+    try {
+      if (!window.Tesseract) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js');
+      }
+
+      if (!appendMode) showPDFStatus('loading', '⏳ 正在识别图片文字（约 10-20 秒）...');
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const result = await Tesseract.recognize(dataUrl, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text' && !appendMode) {
+            const pct = Math.round((m.progress || 0) * 100);
+            showPDFStatus('loading', '⏳ 识别中 ' + pct + '%...');
+          }
+        }
+      });
+
+      const text = result.data.text || '';
+      if (appendMode) {
+        // Append page 2 text to re-run parsePodioText with combined content
+        window._podioPage1Text = (window._podioPage1Text || '') + '\n' + text;
+        parsePodioText(window._podioPage1Text);
+      } else {
+        window._podioPage1Text = text;
+        parsePodioText(text);
+      }
+    } catch (err) {
+      showPDFStatus('error', '❌ 图片识别失败：' + err.message);
+    }
   }
 
   function parsePodioText(text) {
