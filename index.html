@@ -1017,7 +1017,7 @@ ${grp.url}`;
     } else missing.push('Email');
 
     // ── Total devices ─────────────────────────────────────────────────────
-    const devices = extract(/Total\s*#?\s*of\s*Devices\s*Ordered\s*(\d+)/i);
+    const devices = extract(/Total\s*#?\s*of\s*Devices\s*(?:Ordered\s*)?(\d+)/i) || extract(/Total\s*#?\s*of\s*Devices\s+(\d+)/i);
     if (devices) {
       document.getElementById('deviceCount').value = parseInt(devices);
       filled.push('设备套数');
