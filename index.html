@@ -746,7 +746,7 @@
       });
 
       // Run Tesseract OCR
-      const result = await Tesseract.recognize(dataUrl, 'eng', {
+      const result = await Tesseract.recognize(dataUrl, 'eng', { tessedit_pageseg_mode: '4',
         logger: m => {
           if (m.status === 'recognizing text') {
             const pct = Math.round((m.progress || 0) * 100);
@@ -1235,8 +1235,8 @@ ${grp.url}`;
     const card = document.getElementById('messageCard');
     const body = document.getElementById('messageBody');
 
-    const noDate = document.getElementById('btnNoDate').classList.contains('active-nodate');
-    const deliveryStr = noDate ? null : (date ? fmt(date) : '______');
+    const noDate = document.getElementById('btnNoDate').classList.contains('active-nodate') || !date;
+    const deliveryStr = noDate ? null : fmt(date);
     const trackingStr = tracking || '__________________________';
     const emailStr = email || '__________________________';
     const count = parseInt(document.getElementById('deviceCount').value) || 1;
