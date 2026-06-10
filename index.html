@@ -612,25 +612,15 @@
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         const fakeFile = new File([blob], 'podio_page1.png', { type: 'image/png' });
         await handlePodioImage(fakeFile);
-        // Also render page 2 if exists (for Account Login)
+        // Also OCR page 2 (may contain Date Delivered, Account Login)
         if (pdf.numPages >= 2) {
           const page2 = await pdf.getPage(2);
-          // Check if page 2 has any text content first
-          const p2content = await page2.getTextContent();
-          const p2text = p2content.items.map(s => s.str).join('').trim();
-          // Only OCR page 2 if it seems to have content (not blank)
           const vp2 = page2.getViewport({ scale: 2.0 });
           const c2 = document.createElement('canvas');
           c2.width = vp2.width; c2.height = vp2.height;
           await page2.render({ canvasContext: c2.getContext('2d'), viewport: vp2 }).promise;
-          // Check if canvas has any non-white pixels (not blank page)
-          const ctx2 = c2.getContext('2d');
-          const imgData = ctx2.getImageData(0, 0, Math.min(c2.width, 200), Math.min(c2.height, 200));
-          const hasContent = imgData.data.some((v, i) => i % 4 !== 3 && v < 240);
-          if (hasContent) {
-            const blob2 = await new Promise(res => c2.toBlob(res, 'image/png'));
-            await handlePodioImage(new File([blob2], 'podio_page2.png', { type: 'image/png' }), true);
-          }
+          const blob2 = await new Promise(res => c2.toBlob(res, 'image/png'));
+          await handlePodioImage(new File([blob2], 'podio_page2.png', { type: 'image/png' }), true);
         }
         return;
       }
