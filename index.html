@@ -652,6 +652,7 @@
 
   // Stores parsed cable info for use in generate()
   let parsedCables = []; // [{code, qty, info}]
+  let parsedVehicles = []; // [{vin, year, brand}] from Podio Equipment field
 
   async function handlePackingUpload(file) {
     if (!file) return;
@@ -835,6 +836,7 @@
     const statusEl = document.getElementById('packingStatus');
 
     parsedCables = [];
+    parsedVehicles = [];
     document.getElementById('cableInputList').innerHTML = '';
     const seen = {}; // code -> qty
 
@@ -897,6 +899,26 @@
     parsedCables.forEach(c => addCableRow(c.code, c.qty));
 
     generate();
+  }
+
+  // Cable → vehicle assignment rules
+  const CABLE_VEHICLE_RULES = {
+    '3002': { brand: 'FRHT',  maxYear: 2018, label: 'Freightliner 2018 及以前' },
+    '3003': { brand: 'FRHT',  minYear: 2019, label: 'Freightliner 2019 及以后' },
+    '3030': { brand: 'VOLVO', maxYear: 2018, label: 'Volvo 2018 及以前' },
+    '3034': { brand: 'VOLVO', minYear: 2019, label: 'Volvo 2019 及以后' },
+  };
+
+  function getVehiclesForCable(code) {
+    if (!parsedVehicles.length) return null;
+    const rule = CABLE_VEHICLE_RULES[code];
+    if (!rule) return null;
+    return parsedVehicles.filter(v => {
+      if (v.brand !== rule.brand) return false;
+      if (rule.minYear && v.year < rule.minYear) return false;
+      if (rule.maxYear && v.year > rule.maxYear) return false;
+      return true;
+    });
   }
 
   function buildCableText() {
@@ -1061,6 +1083,18 @@ ${bkupUrl}
       selectELD(hasELD ? 'yes' : 'no');
       filled.push('ELD 选项（' + (hasELD ? '有 ELD' : '没有 ELD') + '）');
     } else missing.push('ELD 选项');
+
+    // ── Equipment / Vehicle list ─────────────────────────────────────────
+    // Format: "COMPANY-#VIN XXXXX-YYYY BRAND" e.g. "E & C LOGISTICS-#VIN A4015-2013 FRHT"
+    const equipMatches = [...text.matchAll(/#VIN\s+([A-Z0-9]+)-(\d{4})\s+(FRHT|VOLVO|Freightliner|Volvo)/gi)];
+    if (equipMatches.length > 0) {
+      parsedVehicles = equipMatches.map(m => ({
+        vin: m[1],
+        year: parseInt(m[2]),
+        brand: /FRHT|Freightliner/i.test(m[3]) ? 'FRHT' : 'VOLVO'
+      }));
+      filled.push('车辆列表（' + parsedVehicles.length + ' 台）');
+    }
 
     // ── Date Delivered ────────────────────────────────────────────────────
     // Try multiple date formats: MM/DD/YYYY, YYYY-MM-DD, "April 22, 2026"
