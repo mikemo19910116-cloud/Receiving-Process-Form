@@ -924,19 +924,14 @@
   function buildCableText() {
     if (!parsedCables.length) return '';
 
-    // Check if 3034 is present — affects how 3015/3018 are described
     const has3034 = parsedCables.some(c => c.code === '3034');
-    // Backup cable codes (only treated as backup when 3034 also present)
     const backupCodes = new Set(['3015', '3018']);
-
-    // Separate backup cables from main cables (when 3034 present)
     const mainCables = parsedCables.filter(c => !(has3034 && backupCodes.has(c.code)));
     const bkupCables = has3034 ? parsedCables.filter(c => backupCodes.has(c.code)) : [];
 
     // Group main cables by URL
     const urlGroups = {};
     const unknown = [];
-
     for (const { code, qty, info } of mainCables) {
       if (!info) { unknown.push(code); continue; }
       if (!urlGroups[info.url]) {
@@ -952,28 +947,49 @@
       const numStr = String(grp.totalQty);
       const onlyOneGroup = Object.keys(urlGroups).length === 1 && bkupCables.length === 0;
       let sentence = '';
-      if (grp.truck && grp.totalQty === 1 && onlyOneGroup) {
-        sentence = `您这台车的设备应该是配这条线，以下是这条线的安装视频：
-${grp.url}`;
-      } else if (grp.truck) {
-        sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
-${grp.url}`;
-      } else {
-        sentence = `您有 ${numStr} 台设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：
-${grp.url}`;
+
+      // Check if any cable in this group has vehicle rules AND we have vehicle data
+      const codesWithRules = grp.codes.filter(c => CABLE_VEHICLE_RULES[c]);
+
+      if (codesWithRules.length > 0 && parsedVehicles.length > 0) {
+        // Split by individual cable code — each gets its own vehicle list
+        const codeBlocks = [];
+        for (const code of codesWithRules) {
+          const vehs = getVehiclesForCable(code);
+          if (vehs && vehs.length > 0) {
+            const vinLines = vehs.map(v => 'VIN ' + v.vin + '-' + v.year + ' ' + v.brand).join('\n');
+            codeBlocks.push('Cable ' + code + ' 给以下的车：\n' + vinLines);
+          }
+        }
+        // Also add any codes without rules in this group
+        const codesNoRule = grp.codes.filter(c => !CABLE_VEHICLE_RULES[c]);
+        for (const code of codesNoRule) {
+          codeBlocks.push('Cable ' + code + '：请参考以下安装视频教程');
+        }
+        if (codeBlocks.length > 0) {
+          sentence = codeBlocks.join('\n\n') + '\n以下是安装视频教程：\n' + grp.url;
+        }
+      }
+
+      if (!sentence) {
+        // Fallback to original format
+        if (grp.truck && grp.totalQty === 1 && onlyOneGroup) {
+          sentence = `您这台车的设备应该是配这条线，以下是这条线的安装视频：\n${grp.url}`;
+        } else if (grp.truck) {
+          sentence = `您有 ${numStr} 台 ${grp.truck} 的车，设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：\n${grp.url}`;
+        } else {
+          sentence = `您有 ${numStr} 台设备配备的线是 Cable ${grp.codes.join(' / ')}，以下是安装视频教程：\n${grp.url}`;
+        }
       }
       lines.push(sentence);
     }
 
-    // Add backup cable section if 3034 is present
+    // Backup cable section
     if (bkupCables.length > 0) {
       const bkupUrl = 'https://helpcenter.gomotive.com/hc/en-us/articles/14077274748445-Cable-3010-3015-3017-3018-for-OBD-II';
       const bkupCodeList = [...new Set(bkupCables.map(c => c.code))].join(' / ');
       const bkupQty = bkupCables.reduce((sum, c) => sum + c.qty, 0);
-      const bkupNumStr = String(bkupQty);
-      lines.push(`您还有 ${bkupNumStr} 条设备配备的备用线是 Cable ${bkupCodeList}，以下是安装视频教程：
-${bkupUrl}
-（备注：此线为备用，Motive 建议优先使用仪表盘后面的线 Cable 3034。如 3034 安装失败，才考虑使用此备用线。插外部线存在一定保修风险。）`);
+      lines.push(`您还有 ${bkupQty} 条设备配备的备用线是 Cable ${bkupCodeList}，以下是安装视频教程：\n${bkupUrl}\n（备注：此线为备用，Motive 建议优先使用仪表盘后面的线 Cable 3034。如 3034 安装失败，才考虑使用此备用线。插外部线存在一定保修风险。）`);
     }
 
     for (const code of unknown) {
@@ -982,6 +998,7 @@ ${bkupUrl}
 
     return lines.join('\n\n');
   }
+
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
