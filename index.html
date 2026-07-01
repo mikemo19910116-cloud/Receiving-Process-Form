@@ -967,7 +967,9 @@
           codeBlocks.push('Cable ' + code + '：请参考以下安装视频教程');
         }
         if (codeBlocks.length > 0) {
-          sentence = codeBlocks.join('\n\n') + '\n以下是安装视频教程：\n' + grp.url;
+          // Each code block gets its own URL line
+          const blocksWithUrl = codeBlocks.map(block => block + '\n以下是安装视频教程：\n' + grp.url);
+          sentence = blocksWithUrl.join('\n\n');
         }
       }
 
