@@ -836,7 +836,9 @@
     const statusEl = document.getElementById('packingStatus');
 
     parsedCables = [];
-    parsedVehicles = [];
+    vehicleDataLinkedToPodio = false; // Reset — need fresh Podio upload to link vehicles
+    // Note: parsedVehicles is NOT reset here — vehicle data comes from Podio PDF
+    // It gets cleared when a new Podio PDF is uploaded
     document.getElementById('cableInputList').innerHTML = '';
     const seen = {}; // code -> qty
 
@@ -902,6 +904,8 @@
   }
 
   // Cable → vehicle assignment rules
+  let vehicleDataLinkedToPodio = false; // true when Podio was uploaded in this session
+
   const CABLE_VEHICLE_RULES = {
     '3002': { brand: 'FRHT',  maxYear: 2018, label: 'Freightliner 2018 及以前' },
     '3003': { brand: 'FRHT',  minYear: 2019, label: 'Freightliner 2019 及以后' },
@@ -951,7 +955,7 @@
       // Check if any cable in this group has vehicle rules AND we have vehicle data
       const codesWithRules = grp.codes.filter(c => CABLE_VEHICLE_RULES[c]);
 
-      if (codesWithRules.length > 0 && parsedVehicles.length > 0) {
+      if (codesWithRules.length > 0 && parsedVehicles.length > 0 && vehicleDataLinkedToPodio) {
         // Split by individual cable code — each gets its own vehicle list
         const codeBlocks = [];
         for (const code of codesWithRules) {
@@ -1053,6 +1057,8 @@
   function parsePodioText(text) {
     const filled = [];
     const missing = [];
+    // Reset vehicle list — fresh data from this Podio PDF
+    parsedVehicles = [];
 
     // Helper: extract value after a label
     function extract(pattern, flags) {
@@ -1113,6 +1119,7 @@
         brand: /FRHT|Freightliner/i.test(m[3]) ? 'FRHT' : 'VOLVO'
       }));
       filled.push('车辆列表（' + parsedVehicles.length + ' 台）');
+      vehicleDataLinkedToPodio = true;
     }
 
     // ── Date Delivered ────────────────────────────────────────────────────
