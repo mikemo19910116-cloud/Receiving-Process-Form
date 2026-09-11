@@ -836,9 +836,8 @@
     const statusEl = document.getElementById('packingStatus');
 
     parsedCables = [];
-    vehicleDataLinkedToPodio = false; // Reset — need fresh Podio upload to link vehicles
-    // Note: parsedVehicles is NOT reset here — vehicle data comes from Podio PDF
-    // It gets cleared when a new Podio PDF is uploaded
+    // Restore vehicle snapshot if Podio was uploaded this session
+    parsedVehicles = vehicleDataLinkedToPodio ? [...podioVehicleSnapshot] : [];
     document.getElementById('cableInputList').innerHTML = '';
     const seen = {}; // code -> qty
 
@@ -905,6 +904,7 @@
 
   // Cable → vehicle assignment rules
   let vehicleDataLinkedToPodio = false; // true when Podio was uploaded in this session
+  let podioVehicleSnapshot = [];        // snapshot of vehicles from most recent Podio upload
 
   const CABLE_VEHICLE_RULES = {
     '3002': { brand: 'FRHT',  maxYear: 2018, label: 'Freightliner 2018 及以前' },
@@ -1118,6 +1118,7 @@
         year: parseInt(m[2]),
         brand: /FRHT|Freightliner/i.test(m[3]) ? 'FRHT' : 'VOLVO'
       }));
+      podioVehicleSnapshot = [...parsedVehicles]; // save snapshot
       filled.push('车辆列表（' + parsedVehicles.length + ' 台）');
       vehicleDataLinkedToPodio = true;
     }
@@ -1334,6 +1335,7 @@ ${eldPart}
 
 📹 这个是安装摄像头的视频教程，麻烦参考：
 https://gomotive.com/dashcam-guide
+AI Dashcam Plus: https://helpcenter.gomotive.com/hc/en-us/articles/27714952227101-Getting-Started-with-AI-Dashcam-Plus
 
 ${eldChoice !== 'yes' ? '（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）' : ''}${buildCableText() ? '\n\n' + buildCableText() : ''}
 
