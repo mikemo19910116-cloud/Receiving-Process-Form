@@ -395,8 +395,17 @@
     <div id="pdfStatus" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
     <div id="packingStatus" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6"></div>
 
+    <!-- Dashcam Type Selector -->
+    <div style="margin-top:14px;border-top:1.5px dashed #e2ddd6;padding-top:14px;margin-bottom:14px">
+      <p style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">📷 摄像头型号</p>
+      <div style="display:flex;gap:10px">
+        <button type="button" id="btnDashcamStd" onclick="selectDashcam('std')" style="flex:1;padding:10px 8px;border:2px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">AI Dashcam</button>
+        <button type="button" id="btnDashcamPlus" onclick="selectDashcam('plus')" style="flex:1;padding:10px 8px;border:2px solid #e2ddd6;border-radius:8px;background:#fafaf8;color:#888;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">AI Dashcam Plus</button>
+      </div>
+    </div>
+
     <!-- Manual Cable Input -->
-    <div style="margin-top:14px;border-top:1.5px dashed #e2ddd6;padding-top:14px">
+    <div style="margin-top:0;border-top:1.5px dashed #e2ddd6;padding-top:14px">
       <p style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">✏️ 手动输入 Cable 号码</p>
       <div id="cableInputList" style="display:flex;flex-direction:column;gap:8px"></div>
       <button type="button" onclick="addCableRow()" style="margin-top:8px;width:100%;padding:8px;border:1.5px dashed #cbd5e1;border-radius:7px;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">＋ 添加一条线</button>
@@ -1146,6 +1155,7 @@
         if (!existingDate) {
           document.getElementById('deliveryDate').value = iso;
           setDateMode('has');
+    selectDashcam('std');
         }
         filled.push('送达日期（' + deliveredRaw.trim() + '）');
       }
@@ -1264,6 +1274,40 @@
     return `${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
   }
 
+  let dashcamType = 'std'; // 'std' or 'plus'
+
+  function selectDashcam(type) {
+    dashcamType = type;
+    const btnStd  = document.getElementById('btnDashcamStd');
+    const btnPlus = document.getElementById('btnDashcamPlus');
+    if (type === 'plus') {
+      btnPlus.style.border = '2px solid #7c3aed';
+      btnPlus.style.background = '#faf5ff';
+      btnPlus.style.color = '#7c3aed';
+      btnPlus.style.fontWeight = '700';
+      btnStd.style.border = '2px solid #e2ddd6';
+      btnStd.style.background = '#fafaf8';
+      btnStd.style.color = '#888';
+      btnStd.style.fontWeight = '500';
+    } else {
+      btnStd.style.border = '2px solid #2563eb';
+      btnStd.style.background = '#eff6ff';
+      btnStd.style.color = '#2563eb';
+      btnStd.style.fontWeight = '700';
+      btnPlus.style.border = '2px solid #e2ddd6';
+      btnPlus.style.background = '#fafaf8';
+      btnPlus.style.color = '#888';
+      btnPlus.style.fontWeight = '500';
+    }
+    generate();
+  }
+
+  function getDashcamUrl() {
+    return dashcamType === 'plus'
+      ? 'https://helpcenter.gomotive.com/hc/en-us/articles/27714952227101-Getting-Started-with-AI-Dashcam-Plus'
+      : 'https://gomotive.com/dashcam-guide';
+  }
+
   let dateMode = 'has'; // 'has' or 'no'
 
   function setDateMode(mode) {
@@ -1334,8 +1378,7 @@ ${upsLink}
 ${eldPart}
 
 📹 这个是安装摄像头的视频教程，麻烦参考：
-AI Dashcam Plus: https://helpcenter.gomotive.com/hc/en-us/articles/27714952227101-Getting-Started-with-AI-Dashcam-Plus
-https://gomotive.com/dashcam-guide
+${getDashcamUrl()}
 
 ${eldChoice !== 'yes' ? '（注意：教程后面有教司机安装手机 App 的步骤，如果您没有购买 ELD 服务，那个部分可以略过，司机不需要安装。）' : ''}${buildCableText() ? '\n\n' + buildCableText() : ''}
 
