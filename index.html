@@ -844,6 +844,9 @@
   function parsePackingSlip(text, filename) {
     const statusEl = document.getElementById('packingStatus');
 
+    // Detect AI Dashcam Plus cable early (before early return check)
+    const hasVCBL = /VCBL[- ]/i.test(text);
+
     parsedCables = [];
     // Restore vehicle snapshot if Podio was uploaded this session
     parsedVehicles = vehicleDataLinkedToPodio ? [...podioVehicleSnapshot] : [];
@@ -886,7 +889,7 @@
       parsedCables.push({ code, qty, info });
     }
 
-    if (parsedCables.length === 0) {
+    if (parsedCables.length === 0 && !hasVCBL) {
       statusEl.style.background = '#fffbeb';
       statusEl.style.color = '#92400e';
       statusEl.style.border = '1.5px solid #fde68a';
@@ -897,11 +900,17 @@
     // Update label
     document.getElementById('packingLabel').textContent = '✅ ' + filename.replace('.pdf','');
 
+    // Check for VCBL- (AI Dashcam Plus cable) — auto-select Plus mode
+    if (hasVCBL) {
+      selectDashcam('plus');
+    }
+
     const found = parsedCables.map(c => 'Cable ' + c.code + (c.qty > 1 ? ' ×' + c.qty : '')).join('、');
+    const vcblNote = hasVCBL ? (found ? '，另检测到 AI Dashcam Plus 专用线（已自动切换）' : '检测到 AI Dashcam Plus 专用线（已自动切换）') : '';
     statusEl.style.background = '#f0fdf4';
     statusEl.style.color = '#15803d';
     statusEl.style.border = '1.5px solid #bbf7d0';
-    statusEl.textContent = '✅ 已识别 Cable：' + found + '，话术已更新。';
+    statusEl.textContent = '✅ ' + (found ? '已识别 Cable：' + found : '') + vcblNote + (found || vcblNote ? '，话术已更新。' : '未找到 Cable 型号');
 
     // Sync manual input rows with parsed cables
     const list = document.getElementById('cableInputList');
